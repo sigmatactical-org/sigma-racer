@@ -1,0 +1,69 @@
+# Sigma Racer monorepo: M7 firmware (sidearm), EFI firmware (efi), and the
+# host-side telemetry stack (telemetry, vehicle). Firmware crates target
+# thumbv7em-none-eabihf; host crates target the build host. `cargo build`/`test`
+# at the root operate on the host crates (default-members); firmware is built
+# explicitly for its target (e.g. `cargo build -p sigma-racer-sidearm
+# --target thumbv7em-none-eabihf --features firmware`).
+[workspace]
+resolver = "2"
+members = [
+    "sidearm",
+    "telemetry",
+    "vehicle",
+    "cluster",
+    "efi",
+    "efi/tools/dl2mdf",
+]
+default-members = [
+    "sidearm",
+    "telemetry",
+    "vehicle",
+    "cluster",
+    "efi/tools/dl2mdf",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+license = "MIT OR Apache-2.0"
+authors = ["Sigma Tactical Group contributors <https://github.com/sigmatactical-org>"]
+homepage = "https://sigmatactical.org"
+
+[workspace.dependencies]
+# —— internal crates (path deps within the workspace) ——
+sigma-racer-sidearm = { path = "sidearm", default-features = false }
+sigma-racer-telemetry = { path = "telemetry" }
+
+# —— shared firmware deps (efi + sidearm); members add their own features ——
+embassy-executor = { version = "0.10.0" }
+embassy-time = { version = "0.5.1" }
+cortex-m = { version = "0.7.7" }
+cortex-m-rt = { version = "0.7.5" }
+
+# —— shared host deps ——
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
+serde_json = "1"
+mdf4-rs = { version = "0.6.0", default-features = false }
+
+# —— external sibling crate (checked out under embedded/; patched below) ——
+vss-map = { git = "https://github.com/sigmatactical-org/vss-map.git", rev = "1b6dbaf", default-features = false, features = ["json", "yaml"] }
+
+# vss-map lives outside the monorepo, as a sibling under embedded/.
+[patch."https://github.com/sigmatactical-org/vss-map.git"]
+vss-map = { path = "../vss-map" }
+[patch."ssh://git@github.com/sigmatactical-org/vss-map.git"]
+vss-map = { path = "../vss-map" }
+
+# Profiles are workspace-global (member profiles are ignored). panic=abort is
+# required by the firmware crates; `cargo test` forces unwind for test binaries
+# regardless, so host tests keep working.
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+debug = 2
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = true

@@ -1,0 +1,32 @@
+[package]
+name = "sigma-racer-cluster"
+version.workspace = true
+edition.workspace = true
+# GPL-3.0-only, unlike the rest of the workspace (MIT OR Apache-2.0).
+license = "GPL-3.0-only"
+authors.workspace = true
+description = "Sigma Racer Wingman instrument cluster UI"
+repository = "https://github.com/sigmatactical-org/sigma-racer-cluster"
+homepage.workspace = true
+rust-version.workspace = true
+publish = false
+build = "build.rs"
+
+[[bin]]
+name = "sigma-racer-cluster"
+path = "src/main.rs"
+
+[features]
+default = []
+# Bench/test source: read live CAN frames off a SocketCAN interface (vcan0/can1).
+# Off by default so production/embedded builds pull in no socketcan dependency.
+can-socket = ["dep:socketcan"]
+
+[dependencies]
+# sigma-instrumentation stays outside the monorepo (a sibling under embedded/).
+sigma-instrumentation = { path = "../../sigma-instrumentation/sigma-instrumentation" }
+sigma-racer-telemetry = { workspace = true }
+slint = { version = "=1.17.1", default-features = false, features = ["renderer-femtovg", "backend-winit", "compat-1-2"] }
+chrono = { workspace = true }
+socketcan = { version = "3.6.2", optional = true }
+zbus = { version = "5.18.0", features = ["blocking-api"] }

@@ -1,0 +1,83 @@
+name: Release sidearm
+
+# Per-component tag in the monorepo: sidearm-v1.2.3
+on:
+  push:
+    tags:
+      - "sidearm-v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  deb:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: embedded/sigma-racer
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: embedded/sigma-racer
+      - uses: actions/checkout@v7
+        with:
+          repository: sigmatactical-org/vss-map
+          path: embedded/vss-map
+      - uses: actions/checkout@v7
+        with:
+          repository: sigmatactical-org/sigma-instrumentation
+          path: embedded/sigma-instrumentation
+      - uses: actions/checkout@v7
+        with:
+          repository: sigmatactical-org/sigma-racer-wingman
+          path: embedded/sigma-racer-wingman
+          sparse-checkout: |
+            meta-sigma-racer-wingman/recipes-sigma-racer-wingman/sigma-racer-sidearm
+
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          targets: thumbv7em-none-eabihf
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: embedded/sigma-racer
+
+      - name: Derive deb version from tag
+        id: ver
+        run: |
+          tag="${GITHUB_REF_NAME#sidearm-v}"
+          echo "deb=${tag}-r0" >> "$GITHUB_OUTPUT"
+
+      - name: Build deb
+        working-directory: embedded/sigma-racer/sidearm
+        env:
+          SIDEARM_DEB_VERSION: ${{ steps.ver.outputs.deb }}
+          SIDEARM_SERVICE_SRC: ${{ github.workspace }}/embedded/sigma-racer-wingman/meta-sigma-racer-wingman/recipes-sigma-racer-wingman/sigma-racer-sidearm/sigma-racer-sidearm-firmware/sigma-racer-sidearm.service
+        run: ./scripts/package-deb.sh
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v3
+        with:
+          files: embedded/sigma-racer/sidearm/dist/*.deb
+          generate_release_notes: true
+
+      - name: Publish deb to object store
+        if: vars.SIGMA_PUBLISH_ARTIFACTS == 'true'
+        working-directory: embedded/sigma-racer/sidearm
+        env:
+          SIGMA_ARTIFACT_ENDPOINT: ${{ secrets.SIGMA_ARTIFACT_ENDPOINT }}
+          SIGMA_ARTIFACT_ACCESS_KEY: ${{ secrets.SIGMA_ARTIFACT_ACCESS_KEY }}
+          SIGMA_ARTIFACT_SECRET_KEY: ${{ secrets.SIGMA_ARTIFACT_SECRET_KEY }}
+          SIGMA_ARTIFACT_BUCKET: ${{ vars.SIGMA_ARTIFACT_BUCKET }}
+        run: |
+          pip install --quiet awscli
+          export AWS_ACCESS_KEY_ID="$SIGMA_ARTIFACT_ACCESS_KEY"
+          export AWS_SECRET_ACCESS_KEY="$SIGMA_ARTIFACT_SECRET_KEY"
+          export AWS_DEFAULT_REGION="${SIGMA_ARTIFACT_REGION:-us-east-1}"
+          for deb in dist/*.deb; do
+            aws --endpoint-url "$SIGMA_ARTIFACT_ENDPOINT" s3 cp \
+              "$deb" "s3://${SIGMA_ARTIFACT_BUCKET}/deb/$(basename "$deb")"
+          done

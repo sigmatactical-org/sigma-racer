@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+# The workspace lives at embedded/sigma-racer and references two crates that
+# stay outside the monorepo — vss-map (patched to ../vss-map) and
+# sigma-instrumentation (a path dep of cluster). Every cargo invocation resolves
+# the whole workspace, so both must be checked out as siblings under embedded/.
+jobs:
+  host:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: embedded/sigma-racer
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: embedded/sigma-racer
+      - uses: actions/checkout@v7
+        with:
+          repository: sigmatactical-org/vss-map
+          path: embedded/vss-map
+      - uses: actions/checkout@v7
+        with:
+          repository: sigmatactical-org/sigma-instrumentation
+          path: embedded/sigma-instrumentation
+
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          components: clippy
+
+      - name: Install system dependencies (fontconfig for the cluster UI)
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: embedded/sigma-racer
+
+      - name: Tests (host crates)
+        run: cargo test
+
+      - name: Tests (vehicle SocketCAN)
+        run: cargo test -p sigma-racer-vehicle --features can-socket
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Clippy (SocketCAN)
+        run: cargo clippy -p sigma-racer-vehicle -p sigma-racer-cluster --all-targets --features can-socket -- -D warnings
+
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: embedded/sigma-racer
+      - uses: actions/checkout@v7
+        with:
+          repository: sigmatactical-org/vss-map
+          path: embedded/vss-map
+      - uses: actions/checkout@v7
+        with:
+          repository: sigmatactical-org/sigma-instrumentation
+          path: embedded/sigma-instrumentation
+
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          targets: thumbv7em-none-eabihf
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: embedded/sigma-racer
+
+      # Firmware builds run from the crate dir so its .cargo/config (default
+      # target + linker scripts) applies; the workspace root builds for the host.
+      - name: sidearm — host tests (contract + wire codec)
+        working-directory: embedded/sigma-racer/sidearm
+        run: cargo test-host
+
+      - name: sidearm — firmware release build (thumbv7em)
+        working-directory: embedded/sigma-racer/sidearm
+        run: cargo build --release --no-default-features --features firmware --bin sigma-racer-sidearm
+
+      - name: efi — firmware clippy (thumbv7em)
+        working-directory: embedded/sigma-racer/efi
+        run: cargo clippy --no-default-features --features firmware,engine-yamaha-cp3 --target thumbv7em-none-eabihf -- -D warnings
+
+      - name: efi — firmware release build (thumbv7em)
+        working-directory: embedded/sigma-racer/efi
+        run: cargo build --release --no-default-features --features firmware,engine-yamaha-cp3 --target thumbv7em-none-eabihf
+
+  fmt:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: embedded/sigma-racer
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: embedded/sigma-racer
+      - uses: actions/checkout@v7
+        with:
+          repository: sigmatactical-org/vss-map
+          path: embedded/vss-map
+      - uses: actions/checkout@v7
+        with:
+          repository: sigmatactical-org/sigma-instrumentation
+          path: embedded/sigma-instrumentation
+      - uses: dtolnay/rust-toolchain@1.97.1
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check

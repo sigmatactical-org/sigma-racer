@@ -1,0 +1,61 @@
+[package]
+name = "sigma-racer-sidearm"
+description = "M7 safety-bus CAN contract and Sigma Racer Wingman Cortex-M7 firmware"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository = "https://github.com/sigmatactical-org/sigma-racer-sidearm"
+homepage.workspace = true
+publish = false
+
+[lib]
+name = "sigma_racer_sidearm"
+
+[[bin]]
+name = "sigma-racer-sidearm"
+path = "src/bin/sidearm/main.rs"
+required-features = ["firmware"]
+
+[[bin]]
+name = "sigma-racer-sidearm-bringup"
+path = "src/bin/bringup/main.rs"
+required-features = ["bringup"]
+
+[features]
+default = ["std"]
+# Linux consumers (sigma-racer-vehicle, sigma-racer-efi host tests) use `std`.
+std = ["alloc", "dbc-rs/std"]
+alloc = ["dbc-rs/alloc"]
+heapless = ["dbc-rs/heapless"]
+# Link into on-chip ITCM/DTCM instead of the DDR carve-out (see `memory-itcm.x`).
+memory-itcm = []
+# Minimal M7 boot proof: MPU, UART4 hello — no Embassy/DBC runtime.
+bringup = [
+    "heapless",
+    "dep:cortex-m",
+    "dep:cortex-m-rt",
+    "dep:panic-halt",
+]
+firmware = [
+    "bringup",
+    "heapless",
+    "dep:embassy-executor",
+    "dep:embassy-time",
+    "dep:embassy-time-driver",
+    "dep:systick-timer",
+]
+
+[dependencies]
+# Pinned to the 0.10 line so a single dbc-rs version stays in the tree and the
+# parsed `Dbc` remains type-compatible with mdf4-rs's `CanDbcLogger`.
+dbc-rs = { version = "0.10.0", default-features = false }
+
+cortex-m = { workspace = true, features = ["inline-asm", "critical-section-single-core", "cm7"], optional = true }
+cortex-m-rt = { workspace = true, optional = true }
+panic-halt = { version = "1.0.0", optional = true }
+embassy-executor = { workspace = true, features = ["platform-cortex-m", "executor-thread"], optional = true }
+embassy-time = { workspace = true, features = ["tick-hz-1_000"], optional = true }
+embassy-time-driver = { version = "0.2.2", optional = true }
+systick-timer = { version = "0.2.3", features = ["embassy-time-driver"], optional = true }

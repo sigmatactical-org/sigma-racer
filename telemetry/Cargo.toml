@@ -1,0 +1,29 @@
+[package]
+name = "sigma-racer-telemetry"
+description = "Sigma Racer VSS telemetry protocol, CAN decode, and IPC client"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository = "https://github.com/sigmatactical-org/sigma-racer-telemetry"
+homepage.workspace = true
+publish = false
+
+[dependencies]
+sigma-racer-sidearm = { workspace = true, features = ["std"] }
+vss-map = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { workspace = true }
+rustls = { version = "0.23.42", default-features = false, features = ["ring", "std", "logging"] }
+rustls-pemfile = "2.2.0"
+sha2 = "0.11.0"
+
+[dev-dependencies]
+rcgen = "0.14.8"
+tempfile = "3.27.0"
+
+[[bin]]
+name = "sigma-telemetry-relay"
+path = "src/bin/sigma-telemetry-relay.rs"

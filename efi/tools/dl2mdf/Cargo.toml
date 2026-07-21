@@ -1,0 +1,13 @@
+[package]
+name = "dl2mdf"
+description = "Convert sigma-racer-efi DL capture logs (+ optional candump) to ASAM MDF4"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+publish = false
+
+[dependencies]
+mdf4-rs = { workspace = true, features = ["std", "can", "dbc"] }

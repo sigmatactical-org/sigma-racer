@@ -1,0 +1,8 @@
+# Firmware target config. Applies when building from within efi/ (e.g.
+# `cd efi && cargo build --target thumbv7em-none-eabihf --features firmware`).
+# sigma-racer-sidearm is a workspace path dep now, so no [patch] is needed.
+[target.thumbv7em-none-eabihf]
+runner = "probe-rs run --chip STM32F767VI"
+
+[env]
+DEFMT_LOG = "info"

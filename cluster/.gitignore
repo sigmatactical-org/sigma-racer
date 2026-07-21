@@ -1,0 +1,13 @@
+# Rust build artifacts
+/target/
+
+# Backup / editor files
+**/*.rs.bk
+*.swp
+*~
+
+# OS cruft
+.DS_Store
+
+# Volatile dev notes — local only, not part of the committed spec set
+development/

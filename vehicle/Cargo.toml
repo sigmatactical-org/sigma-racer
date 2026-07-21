@@ -1,0 +1,33 @@
+[package]
+name = "sigma-racer-vehicle"
+description = "Sigma Racer vehicle signal daemon — CAN decode and VSS telemetry publisher"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository = "https://github.com/sigmatactical-org/sigma-racer-vehicle"
+homepage.workspace = true
+publish = false
+
+[[bin]]
+name = "sigma-racer-vehicle"
+path = "src/main.rs"
+
+[features]
+default = []
+can-socket = ["dep:socketcan"]
+rpmsg = ["dep:sigma-racer-sidearm"]
+
+[dependencies]
+sigma-racer-sidearm = { workspace = true, features = ["std"], optional = true }
+sigma-racer-telemetry = { workspace = true }
+mdf4-rs = { workspace = true, features = ["std", "dbc", "can"] }
+chrono = { workspace = true }
+socketcan = { version = "3.6.2", optional = true }
+# Durable on-bike store (maintenance log + error history). `bundled` compiles
+# SQLite from source so the Yocto cross-build needs no target libsqlite3.
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -1,0 +1,12 @@
+# Cargo build output (workspace-shared target dir at the root).
+/target
+
+# rustfmt backups
+**/*.rs.bk
+
+# release artifacts
+/**/dist/
+
+# Yocto/bitbake per-recipe work symlinks
+oe-logs
+oe-workdir
