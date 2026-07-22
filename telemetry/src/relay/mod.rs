@@ -189,53 +189,6 @@ pub fn default_query_socket_path() -> PathBuf {
     )
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::os::unix::net::UnixListener;
-
-    #[test]
-    fn classifies_query_vs_subscribe() {
-        let query = Message::database_query(1).to_line();
-        assert!(is_database_query(Some(&query)));
-        assert!(!is_database_query(Some(&Message::subscribe().to_line())));
-        assert!(!is_database_query(Some("not json")));
-        assert!(!is_database_query(None));
-    }
-
-    #[test]
-    fn forwards_request_and_streams_bike_response() {
-        // Stand in for the bike: a Unix socket that reads the request line and
-        // streams back some bytes (fake database), then closes.
-        let dir = std::env::temp_dir().join(format!("relay-fwd-{}", std::process::id()));
-        let _ = std::fs::create_dir_all(&dir);
-        let sock = dir.join("bike-query.sock");
-        let _ = std::fs::remove_file(&sock);
-        let listener = UnixListener::bind(&sock).expect("bind fake bike");
-
-        let bike = thread::spawn(move || {
-            let (stream, _) = listener.accept().expect("accept");
-            let mut reader = BufReader::new(stream);
-            let mut req = String::new();
-            reader.read_line(&mut req).expect("read req");
-            assert!(req.contains("DatabaseQuery"));
-            reader
-                .into_inner()
-                .write_all(b"SQLite format 3\0fake-db-bytes")
-                .expect("write resp");
-        });
-
-        let request = Message::database_query(1).to_line();
-        let mut stream = forward_request(&sock, &request).expect("forward");
-        let mut got = Vec::new();
-        stream.read_to_end(&mut got).expect("read response");
-        assert!(got.starts_with(b"SQLite format 3\0"));
-
-        bike.join().unwrap();
-        let _ = std::fs::remove_file(&sock);
-    }
-}
-
 fn spawn_unix_subscriber(socket_path: PathBuf, line_tx: mpsc::Sender<String>) {
     thread::spawn(move || {
         loop {
@@ -286,4 +239,51 @@ pub fn default_listen_addr() -> String {
         .and_then(|s| s.parse().ok())
         .unwrap_or(DEFAULT_TCP_PORT);
     format!("0.0.0.0:{port}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::net::UnixListener;
+
+    #[test]
+    fn classifies_query_vs_subscribe() {
+        let query = Message::database_query(1).to_line();
+        assert!(is_database_query(Some(&query)));
+        assert!(!is_database_query(Some(&Message::subscribe().to_line())));
+        assert!(!is_database_query(Some("not json")));
+        assert!(!is_database_query(None));
+    }
+
+    #[test]
+    fn forwards_request_and_streams_bike_response() {
+        // Stand in for the bike: a Unix socket that reads the request line and
+        // streams back some bytes (fake database), then closes.
+        let dir = std::env::temp_dir().join(format!("relay-fwd-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let sock = dir.join("bike-query.sock");
+        let _ = std::fs::remove_file(&sock);
+        let listener = UnixListener::bind(&sock).expect("bind fake bike");
+
+        let bike = thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept");
+            let mut reader = BufReader::new(stream);
+            let mut req = String::new();
+            reader.read_line(&mut req).expect("read req");
+            assert!(req.contains("DatabaseQuery"));
+            reader
+                .into_inner()
+                .write_all(b"SQLite format 3\0fake-db-bytes")
+                .expect("write resp");
+        });
+
+        let request = Message::database_query(1).to_line();
+        let mut stream = forward_request(&sock, &request).expect("forward");
+        let mut got = Vec::new();
+        stream.read_to_end(&mut got).expect("read response");
+        assert!(got.starts_with(b"SQLite format 3\0"));
+
+        bike.join().unwrap();
+        let _ = std::fs::remove_file(&sock);
+    }
 }

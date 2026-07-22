@@ -136,7 +136,7 @@ fn run() -> Result<(), String> {
                 seq += 1;
                 broadcaster.send(ev.to_message(seq).to_line());
                 log!("anomaly {} {:?}: {}", ev.id, ev.edge, ev.message);
-                record_error(&maintenance, &ev, &state);
+                record_error(&maintenance, ev, &state);
             }
             sample_at = Instant::now();
         }
@@ -151,7 +151,7 @@ fn run() -> Result<(), String> {
                 seq += 1;
                 broadcaster.send(ev.to_message(seq).to_line());
                 log!("anomaly {} {:?}: {}", ev.id, ev.edge, ev.message);
-                record_error(&maintenance, &ev, &state);
+                record_error(&maintenance, ev, &state);
             }
             // Keep the persisted odometer fresh so a pulled database is a
             // self-contained audit input (odometer is a live signal).
@@ -192,10 +192,10 @@ fn record_error(
     ev: &sigma_racer_telemetry::AnomalyEvent,
     state: &VehicleState,
 ) {
-    if let Some(db) = db {
-        if let Err(err) = db.record_error(ev, state.odometer as f64) {
-            log!("db: {err}");
-        }
+    if let Some(db) = db
+        && let Err(err) = db.record_error(ev, state.odometer as f64)
+    {
+        log!("db: {err}");
     }
 }
 

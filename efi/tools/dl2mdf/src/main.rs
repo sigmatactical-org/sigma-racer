@@ -72,7 +72,7 @@ fn parse_candump(line: &str) -> Option<CanRec> {
     let (id_hex, data_hex) = frame.split_once('#')?;
     let id = u32::from_str_radix(id_hex, 16).ok()?;
     let data_hex: String = data_hex.chars().filter(|c| c.is_ascii_hexdigit()).collect();
-    if data_hex.len() % 2 != 0 || data_hex.len() > 16 {
+    if !data_hex.len().is_multiple_of(2) || data_hex.len() > 16 {
         return None;
     }
     let dlc = (data_hex.len() / 2) as u8;
@@ -352,7 +352,7 @@ mod tests {
         assert!((rec.t_s - 1_720_000_000.123456).abs() < 1e-6);
         assert_eq!(rec.id, 0x23A);
         assert_eq!(rec.dlc, 5);
-        assert_eq!(rec.data, 0xDEAD_BEEF_01);
+        assert_eq!(rec.data, 0xDE_AD_BE_EF_01);
     }
 
     #[test]
